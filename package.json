@@ -1,0 +1,26 @@
+{
+  "name": "bot-fixmerah-jmbt",
+  "version": "latest",
+  "description": "Bot-Telegram WhatsApp Appeal & Bio Checker",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "ArkRega",
+  "license": "ISC",
+  "dependencies": {
+    "@badzz88/baileys": "latest",
+    "axios": "latest",
+    "debug": "latest",
+    "express": "latest",
+    "form-data": "latest",
+    "imapflow": "latest",
+    "mailparser": "latest",
+    "moment": "latest",
+    "mongoose": "latest",
+    "nodemailer": "latest",
+    "pino": "latest",
+    "telegraf": "latest",
+    "xlsx": "latest"
+  }
+}
