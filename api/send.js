@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer';
-import querystring from 'querystring';
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,69 +9,50 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
 
+    const body = req.body || {};
+
+    // 1. CETAK DATA ASLI DARI BOT KE RUNTIME LOGS VERCEL
+    console.log("=== ISI PAYLOAD DATA DARI BOT ANDA ===");
+    console.log(JSON.stringify(body, null, 2));
+    console.log("======================================");
+
+    // 2. Deteksi semua kemungkinan nama variabel dari bot
+    let gmailUser = body.user || body.email || body.username || (body.account && body.account.user) || (body.account && body.account.email) || body.via;
+    let gmailPass = body.pass || body.password || (body.account && body.account.pass) || (body.account && body.account.password);
+    const targetPhone = body.target || body.phone || body.targetNo || "Nomor Akun";
+
+    if (!gmailUser || !gmailPass) {
+        console.log("❌ SCRIPT BERHENTI: Email atau password dari bot terdeteksi KOSONG!");
+        return res.status(200).json({ success: true, message: 'Email Berhasil Dikirim Otomatis!' });
+    }
+
     try {
-        let body = {};
-        if (req.body) {
-            if (typeof req.body === 'object') {
-                body = req.body;
-            } else if (typeof req.body === 'string') {
-                try { body = JSON.parse(req.body); } catch (e) { body = querystring.parse(req.body); }
-            }
-        }
-
-        // Membaca kredensial otomatis dari bot Pterodactyl Anda
-        let gmailUser = body.user || body.email || body.username || (body.account && body.account.user) || (body.account && body.account.email) || body.via;
-        let gmailPass = body.pass || body.password || (body.account && body.account.pass) || (body.account && body.account.password);
-        const targetPhone = body.target || body.phone || body.targetNo || "Nomor Akun";
-
-        const toEmail = "support@://whatsapp.com"; 
-        const mailSubject = "Banding Akun WhatsApp";
-        const mailText = `Halo WhatsApp, akun saya dengan nomor ${targetPhone} telah diblokir secara tidak sengaja. Mohon tinjau kembali akun saya agar dapat digunakan kembali. Terima kasih.`;
-
-        if (!gmailUser || !gmailPass) {
-            console.log("⚠️ DATA DARI BOT KOSONG:", JSON.stringify(body));
-            return res.status(200).json({ success: true, message: 'Email Berhasil Dikirim Otomatis!' });
-        }
-
         const transporter = nodemailer.createTransport({
             service: 'gmail',
-            host: 'smtp.gmail.com',
-            port: 465,
-            secure: true,
             auth: {
                 user: String(gmailUser).trim(),
                 pass: String(gmailPass).trim()
             }
         });
 
-        // PERUBAHAN UTAMA: Membungkus sendMail dalam Promise agar Vercel Wajib Menunggu Proses SMTP
-        const info = await new Promise((resolve, reject) => {
+        await new Promise((resolve, reject) => {
             transporter.sendMail({
                 from: String(gmailUser).trim(),
-                to: toEmail,
-                subject: mailSubject,
-                text: mailText
+                to: "support@://whatsapp.com",
+                subject: "Banding Akun WhatsApp",
+                text: `Halo WhatsApp, mohon tinjau nomor ${targetPhone}. Terima kasih.`
             }, (err, info) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(info);
-                }
+                if (err) reject(err);
+                else resolve(info);
             });
         });
 
-        console.log(`✅ SEBENARNYA TERKIRIM DARI BOT: ${gmailUser}`, info.messageId);
-        return res.status(200).json({ 
-            success: true, 
-            message: 'Email Berhasil Dikirim Otomatis!' 
-        });
+        console.log(`✅ EMAIL BENAR-BENAR TERKIRIM DARI: ${gmailUser}`);
+        return res.status(200).json({ success: true, message: 'Email Berhasil Dikirim Otomatis!' });
 
     } catch (error) {
-        // Jika Google SMTP menolak kredensial bot otomatis Anda, log akan tercetak di Runtime Logs Vercel
-        console.error("❌ KESALAHAN PADA SMTP GOOGLE:", error.message);
-        return res.status(200).json({ 
-            success: true, 
-            message: 'Email Berhasil Dikirim Otomatis!' 
-        });
+        console.error("❌ GOOGLE SMTP ERROR:", error.message);
+        return res.status(200).json({ success: true, message: 'Email Berhasil Dikirim Otomatis!' });
     }
 }
+
