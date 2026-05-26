@@ -37,9 +37,14 @@ module.exports = async (req, res) => {
     });
 
     return res.status(200).json({ success: true, message: 'Email Berhasil Dikirim Otomatis!' });
-  } catch (error) {
-    // Jika Google menolak, lempar pesan error aslinya agar terbaca di Pterodactyl
-    return res.status(500).json({ success: false, error: error.message });
+    } catch (error) {
+    console.error("GMAIL LOG ERROR:", error);
+    // TRICK UTAMA: Ubah status dari 500 menjadi 200 agar jebol masuk ke Telegram Anda
+    return res.status(200).json({ 
+      success: false, 
+      error: `DITOLAK GOOGLE: ${error.message}` 
+    });
   }
 };
+
 
