@@ -1,5 +1,7 @@
+import nodemailer from 'nodemailer';
+
 export default async function handler(req, res) {
-    // Pengaturan Header CORS aman
+    // Pengaturan Header CORS untuk komunikasi bot Pterodactyl dengan Vercel
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -11,54 +13,67 @@ export default async function handler(req, res) {
     try {
         const body = req.body || {};
 
-        // Membaca kredensial otomatis dari bot Anda
+        // 1. Membaca data yang dikirim bot
         let gmailUser = body.userEmail || body.user || body.email;
         let gmailPass = body.userPass || body.pass || body.password;
+        
+        // Membaca nomor target pengajuan banding dari bot
         const targetPhone = body.target || body.phone || "Nomor Target";
 
-        if (!gmailUser || !gmailPass) {
-            console.log("❌ DATA BOT KOSONG");
-            return res.status(200).json({ success: true, message: 'Email Berhasil Dikirim Otomatis!' });
-        }
-
-        // Konten Email Banding WhatsApp resmi
-        const toEmail = "support@://whatsapp.com";
+        // PERBAIKAN 1: Alamat tujuan email resmi WhatsApp (Tanpa tanda '://')
+        const toEmail = "support@whatsapp.com"; 
         const mailSubject = "Banding Akun WhatsApp";
         const mailText = `Halo WhatsApp, akun saya dengan nomor ${targetPhone} telah diblokir secara tidak sengaja. Mohon tinjau kembali akun saya agar dapat digunakan kembali. Terima kasih.`;
 
-        // Menggunakan trik otentikasi dasar berbasis string Base64 aman
-        const kredensialBase64 = Buffer.from(`${gmailUser.trim()}:${gmailPass.trim()}`).toString('base64');
+        // 2. Validasi input data dari bot
+        if (!gmailUser || !gmailPass) {
+            console.error("❌ PENGIRIMAN DIBATALKAN: Variabel data dari bot kosong.");
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Gagal! Variabel userEmail atau userPass kosong.' 
+            });
+        }
 
-        console.log(`🚀 MEMPROSES PENGIRIMAN INSTAN DARI: ${gmailUser}`);
-
-        // Kirim email langsung menggunakan jalur cepat HTTP ke server Google
-        const response = await fetch('https://gmail.com', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Basic ${kredensialBase64}`,
-                'Content-Type': 'application/json'
+        // PERBAIKAN 2: Konfigurasi Host SMTP Google yang Benar
+        const transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com', // <--- Diubah menjadi smtp.gmail.com
+            port: 465,
+            secure: true, // Menggunakan SSL murni
+            auth: {
+                user: String(gmailUser).trim(),
+                pass: String(gmailPass).trim() // Pastikan ini adalah "Sandi Aplikasi" Google, bukan password utama akun
             },
-            body: JSON.stringify({
-                from: gmailUser.trim(),
+            tls: {
+                rejectUnauthorized: false
+            }
+        });
+
+        // 3. Proses Sinkronus Pengiriman Email
+        await new Promise((resolve, reject) => {
+            transporter.sendMail({
+                from: String(gmailUser).trim(),
                 to: toEmail,
                 subject: mailSubject,
                 text: mailText
-            }),
-            signal: AbortSignal.timeout(6000) // Batasi maksimal 6 detik agar tidak timeout di Vercel
-        }).catch(() => null); 
+            }, (err, info) => {
+                if (err) reject(err);
+                else resolve(info);
+            });
+        });
 
-        console.log(`✅ PROSES SELESAI DI EKSEKUSI`);
+        console.log(`✅ EMAIL BENAR-BENAR SUKSES TERKIRIM DARI: ${gmailUser}`);
+        
         return res.status(200).json({ 
             success: true, 
             message: 'Email Berhasil Dikirim Otomatis!' 
         });
 
     } catch (error) {
-        console.error("❌ KESALAHAN SISTEM:", error.message);
-        return res.status(200).json({ 
-            success: true, 
-            message: 'Email Berhasil Dikirim Otomatis!' 
+        console.error("❌ KESALAHAN UTAMA PADA SMTP GMAIL:", error.message);
+        
+        return res.status(500).json({ 
+            success: false, 
+            message: `Gagal Kirim Gmail: ${error.message}` 
         });
     }
 }
-
