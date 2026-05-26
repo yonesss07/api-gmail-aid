@@ -1,14 +1,21 @@
 const nodemailer = require('nodemailer');
 
 module.exports = async (req, res) => {
-  // Langsung loloskan tanpa pengecekan key untuk membongkar gerbang 403
-  const { to, subject, text, html, user, pass } = req.body || {};
+  // Menerima seluruh lemparan data dari bot Pterodactyl Anda
+  const { to, subject, text, html, user, pass, email, password, account } = req.body || {};
 
-  const gmailUser = user || req.body?.email || process.env.GMAIL_USER;
-  const gmailPass = pass || req.body?.password || process.env.GMAIL_PASS;
+  // TRIK UTAMA: Melacak alamat email dari segala jenis nama variabel MongoDB bot Anda
+  const gmailUser = user || email || req.body?.user || req.body?.email || account?.email || process.env.GMAIL_USER;
+  
+  // Melacak Sandi Aplikasi dari segala jenis nama variabel MongoDB bot Anda
+  const gmailPass = pass || password || req.body?.pass || req.body?.password || account?.password || account?.pass || process.env.GMAIL_PASS;
 
+  // Jika setelah dilacak ke semua label tetap kosong, baru tampilkan error ini ke Telegram
   if (!gmailUser || !gmailPass) {
-    return res.status(200).json({ success: false, error: 'Email atau Password kosong dari MongoDB!' });
+    return res.status(200).json({ 
+      success: false, 
+      error: `Data Kosong! Server menerima data: ${JSON.stringify(req.body)}` 
+    });
   }
 
   let transporter = nodemailer.createTransport({
