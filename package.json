@@ -1,7 +1,9 @@
 {
+  "name": "api-gmail-aid",
+  "version": "1.0.0",
+  "description": "API Pengirim Email Banding WhatsApp",
+  "main": "api/send.js",
   "dependencies": {
-    "nodemailer": "^6.9.0",
-    "imap": "^0.8.23",
-    "mailparser": "^3.6.0"
+    "nodemailer": "^6.9.0"
   }
 }
