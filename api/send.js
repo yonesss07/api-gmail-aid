@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 
 export default async function handler(req, res) {
+    // Pengaturan Header CORS untuk mengizinkan bot Pterodactyl Anda berkomunikasi dengan Vercel
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -12,33 +13,42 @@ export default async function handler(req, res) {
     try {
         const body = req.body || {};
 
-        // PAS DAN COCOK: Membaca variabel asli dari skrip bot Anda
+        // 1. Membaca data yang dikirim bot (Variabel disesuaikan dengan bukti gambar log: userEmail & userPass)
         let gmailUser = body.userEmail || body.user || body.email;
         let gmailPass = body.userPass || body.pass || body.password;
         
-        // Mengambil nomor target WhatsApp dari data bot
+        // Membaca nomor target pengajuan banding dari bot
         const targetPhone = body.target || body.phone || "Nomor Target";
 
+        // Alamat tujuan pengiriman banding resmi ke pihak WhatsApp Support
         const toEmail = "support@://whatsapp.com"; 
         const mailSubject = "Banding Akun WhatsApp";
         const mailText = `Halo WhatsApp, akun saya dengan nomor ${targetPhone} telah diblokir secara tidak sengaja. Mohon tinjau kembali akun saya agar dapat digunakan kembali. Terima kasih.`;
 
-        // Validasi ketat jika data kosong
+        // 2. Validasi input data dari bot
         if (!gmailUser || !gmailPass) {
-            console.log("❌ GAGAL: Bot mengirim data kosong atau nama variabel salah lagi!");
-            return res.status(200).json({ success: true, message: 'Email Berhasil Dikirim Otomatis!' });
+            console.error("❌ PENGIRIMAN DIBATALKAN: Variabel data dari bot kosong.");
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Gagal! Variabel userEmail atau userPass yang dikirim oleh bot kosong.' 
+            });
         }
 
-        // Konfigurasi Nodemailer Transporter
+        // 3. Konfigurasi Protokol Keamanan SSL SMTP Google (Port 465)
         const transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: '://gmail.com',
+            port: 465,
+            secure: true, // Menggunakan SSL murni untuk bypass blokir serverless Vercel
             auth: {
                 user: String(gmailUser).trim(),
                 pass: String(gmailPass).trim()
+            },
+            tls: {
+                rejectUnauthorized: false
             }
         });
 
-        // Proses Sinkronus Kirim Email ke WhatsApp
+        // 4. Proses Sinkronus Pengiriman Email murni
         await new Promise((resolve, reject) => {
             transporter.sendMail({
                 from: String(gmailUser).trim(),
@@ -51,18 +61,21 @@ export default async function handler(req, res) {
             });
         });
 
-        console.log(`✅ SUKSES 100% TERKIRIM DARI EMAIL: ${gmailUser}`);
+        console.log(`✅ EMAIL BENAR-BENAR SUKSES TERKIRIM DARI: ${gmailUser}`);
+        
+        // Jika sukses kirim, balikan status 200 asli ke bot Anda
         return res.status(200).json({ 
             success: true, 
             message: 'Email Berhasil Dikirim Otomatis!' 
         });
 
     } catch (error) {
-        // Jika Sandi Aplikasi salah, log errornya akan tercetak jelas di sini
-        console.error("❌ KESALAHAN SMTP GOOGLE GAGAL LOGIN:", error.message);
-        return res.status(200).json({ 
-            success: true, 
-            message: 'Email Berhasil Dikirim Otomatis!' 
+        // PERUBAHAN UTAMA: Kembalikan status error 500 jujur agar Pterodactyl/Bot tahu kalau Gmail gagal login
+        console.error("❌ KESALAHAN UTAMA PADA SMTP GMAIL:", error.message);
+        
+        return res.status(500).json({ 
+            success: false, 
+            message: `Gagal Kirim Gmail: ${error.message}` 
         });
     }
 }
