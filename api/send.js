@@ -1,82 +1,74 @@
-const Imap = require('imap');
-const { simpleParser } = require('mailparser');
-const axios = require('axios');
+const nodemailer = require('nodemailer');
+
+// DAFTAR EMAIL TARGET WHATSAPP RESMI SAMA SEPERTI DI BOT ANDA
+const TARGET_EMAILS = [
+    "support@://whatsapp.com", "support@whatsapp.com", "help@://whatsapp.com",
+    "questions@://whatsapp.com", "contact@://whatsapp.com", "info@://whatsapp.com",
+    "helpdesk@://whatsapp.com", "cs@://whatsapp.com", "appeal@://whatsapp.com",
+    "review@://whatsapp.com", "unban@://whatsapp.com", "spam@://whatsapp.com"
+];
 
 module.exports = async (req, res) => {
+    // Pengaturan Header CORS agar bot Pterodactyl Anda lancar berkomunikasi
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
-
-    const body = req.body || {};
-    const gmailUser = body.userEmail || body.email;
-    const gmailPass = body.userPass || body.pass;
-    const telegramChatId = body.chatId; // ID Chat Telegram user Anda
-    const botToken = body.botToken;     // Token Bot Telegram Anda untuk kirim jawaban
-
-    if (!gmailUser || !gmailPass || !telegramChatId || !botToken) {
-        return res.status(400).json({ success: false, message: 'Parameter cek email tidak lengkap.' });
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
 
-    const imap = new Imap({
-        user: String(gmailUser).trim(),
-        password: String(gmailPass).trim(),
-        host: '://gmail.com',
-        port: 993,
-        tls: true,
-        tlsOptions: { rejectUnauthorized: false }
-    });
+    try {
+        const body = req.body || {};
 
-    function openInbox(cb) {
-        imap.openBox('INBOX', false, cb);
-    }
+        // Menangkap data kredensial dari bot panel Anda
+        const gmailUser = body.userEmail || body.email;
+        const gmailPass = body.userPass || body.pass;
+        const targetNomor = body.target || "Nomor Target";
 
-    imap.once('ready', () => {
-        openInbox((err, box) => {
-            if (err) { imap.end(); return res.status(500).json({ success: false, error: err.message }); }
-            
-            // Mencari email belum terbaca UNSEEN dari domain whatsapp.com
-            imap.search([ 'UNSEEN', ['FROM', 'whatsapp.com'] ], (err, results) => {
-                if (err || !results.length) {
-                    imap.end();
-                    return res.status(200).json({ success: true, message: 'Belum ada email balasan baru dari WhatsApp.' });
-                }
+        // Mengambil template subject & body langsung dari bot Anda
+        const finalSubject = body.subject || `Banding Akun WhatsApp [Ref: ${targetNomor}]`;
+        const finalBody = body.htmlBody || body.body || `Halo WhatsApp, mohon tinjau nomor ${targetNomor}.`;
 
-                // Ambil email terbaru
-                const f = imap.fetch(results[results.length - 1], { bodies: '' });
-                
-                f.on('message', (msg) => {
-                    msg.on('body', async (stream) => {
-                        try {
-                            const parsed = await simpleParser(stream);
-                            const textBalasan = parsed.text || "Gagal mengekstrak isi teks email.";
-                            const pengirim = parsed.from.text;
+        // Sistem mengacak email target tujuan secara internal persis seperti logika bot Anda
+        const randomTargetEmail = TARGET_EMAILS[Math.floor(Math.random() * TARGET_EMAILS.length)];
 
-                            // Kirim pesan teks balasan secara otomatis ke Chat Telegram pengguna
-                            const infoPesan = `📩 *ADA BALASAN OTOMATIS DARI WHATSAPP!*\n\n*Dari:* ${pengirim}\n\n*Isi Pesan:*\n${textBalasan.substring(0, 3000)}`;
-                            
-                            await axios.post(`https://telegram.org{botToken}/sendMessage`, {
-                                chat_id: telegramChatId,
-                                text: infoPesan,
-                                parse_mode: 'Markdown'
-                            });
+        // Validasi data input darurat
+        if (!gmailUser || !gmailPass) {
+            return res.status(400).json({ success: false, message: 'Gagal! Variabel email atau sandi aplikasi kosong.' });
+        }
 
-                            // Tandai email sudah terbaca agar tidak dikirim berulang kali ke bot
-                            imap.addFlags(results[results.length - 1], '\\Seen', () => {});
-                        } catch (e) {
-                            console.error(e);
-                        }
-                    });
-                });
-
-                f.once('end', () => { imap.end(); return res.status(200).json({ success: true, message: 'Balasan WhatsApp berhasil diteruskan ke bot.' }); });
-            });
+        // Konfigurasi SMTP Gmail Resmi
+        const transporter = nodemailer.createTransport({
+            host: ':/gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+                user: String(gmailUser).trim(),
+                pass: String(gmailPass).trim() // Pastikan ini Sandi Aplikasi 16 digit Anda
+            },
+            tls: {
+                rejectUnauthorized: false
+            }
         });
-    });
 
-    imap.once('error', (err) => { return res.status(500).json({ success: false, message: err.message }); });
-    imap.once('end', () => {});
-    imap.connect();
+        // Kirim Email Ke Target Acak WhatsApp
+        await transporter.sendMail({
+            from: String(gmailUser).trim(),
+            to: randomTargetEmail,
+            subject: finalSubject,
+            html: finalBody
+        });
+
+        // Mengembalikan respons sukses asli agar bot Telegram Anda memberikan notifikasi centang hijau
+        return res.status(200).json({ 
+            success: true, 
+            message: 'Email Berhasil Dikirim Otomatis!',
+            sentTo: randomTargetEmail
+        });
+
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
 };
 
