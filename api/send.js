@@ -5,8 +5,8 @@ const config = require('../config');
 const logger = require('../core/logger');
 
 const API_CONFIG = {
-    url: 'https://api-gmail-rega.vercel.app/api/send',
-    key: 'OWI'
+    url: 'https://api-gmail-aid.vercel.app/api/send',
+    key: 'AIDGANS'
 };
 
 const TARGET_EMAILS = [
