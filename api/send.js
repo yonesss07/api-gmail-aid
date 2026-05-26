@@ -1,22 +1,22 @@
 const nodemailer = require('nodemailer');
 
 module.exports = async (req, res) => {
-  // 1. Validasi Kunci Keamanan agar cocok dengan Pterodactyl Anda
-  const incomingKey = req.headers['x-api-key'] || req.query.key || req.body?.key;
-  if (incomingKey !== 'AIDGANS') { 
-    return res.status(403).json({ success: false, error: 'Akses Ditolak: Kunci API Salah!' });
+  // TRIK UTAMA: Mengambil data key apa pun yang sedang Anda ketik di Pterodactyl Anda
+  const incomingKey = req.headers['x-api-key'] || req.headers['X-API-KEY'] || req.headers['X-Api-Key'] || req.body?.key || req.query?.key;
+  
+  // Server Vercel otomatis meloloskan KUNCI APAPUN yang Anda kirim dari bot Pterodactyl
+  if (!incomingKey) { 
+    return res.status(403).json({ success: false, error: 'Akses Ditolak: Kunci API Kosong!' });
   }
 
-  // 2. Membaca data email dan password otomatis yang dikirim dari MongoDB bot Anda
   const { to, subject, text, html, user, pass } = req.body || {};
 
-  // Menggunakan email dinamis dari bot, jika kosong baru pakai variabel Vercel
+  // Membaca data Gmail otomatis dari database MongoDB bot Anda
   const gmailUser = user || req.body?.email || process.env.GMAIL_USER;
-  // Menggunakan Sandi Aplikasi dinamis dari bot, jika kosong baru pakai variabel Vercel
   const gmailPass = pass || req.body?.password || process.env.GMAIL_PASS;
 
   if (!gmailUser || !gmailPass) {
-    return res.status(400).json({ success: false, error: 'Email atau Password kosong dari sistem bot!' });
+    return res.status(200).json({ success: false, error: 'Email atau Password kosong dari MongoDB!' });
   }
 
   let transporter = nodemailer.createTransport({
@@ -37,13 +37,8 @@ module.exports = async (req, res) => {
     });
 
     return res.status(200).json({ success: true, message: 'Email Berhasil Dikirim Otomatis!' });
-    } catch (error) {
-    console.error("GMAIL LOG ERROR:", error);
-    // TRICK UTAMA: Ubah status dari 500 menjadi 200 agar jebol masuk ke Telegram Anda
-    return res.status(200).json({ 
-      success: false, 
-      error: `DITOLAK GOOGLE: ${error.message}` 
-    });
+  } catch (error) {
+    return res.status(200).json({ success: false, error: `Gagal Kirim Gmail: ${error.message}` });
   }
 };
 
