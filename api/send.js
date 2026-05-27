@@ -7,20 +7,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { target, message } = req.body;
+    // MODIFIKASI: Mengambil semua kemungkinan nama properti yang dikirim fixmerah.js
+    const { target, email, to, message, text } = req.body;
 
-    // Validasi input
-    if (!target) {
-      return res.status(400).json({ error: 'Target nomor telepon wajib diisi' });
+    // Menentukan target tujuan (mana yang tersedia dari data fixmerah.js)
+    const finalTarget = target || email || to;
+    // Menentukan isi pesan
+    const finalMessage = message || text || 'Halo dari Pterodactyl Panel';
+
+    // Validasi input tujuan
+    if (!finalTarget) {
+      return res.status(400).json({ 
+        error: 'Gagal memproses, data target/email tujuan tidak ditemukan dalam request.' 
+      });
     }
 
-    // PERBAIKAN: Tanda petik ganda di ujung sudah dihapus menjadi satu tanda petik tunggal saja
-    const apiUrl = 'https://api-gmail-aid.vercel.app/api/send'; 
+    const apiUrl = 'https://vercel.app'; 
     const apiKey = process.env.AIDGANS; // Ambil dari Environment Variables
 
     const response = await axios.post(apiUrl, {
-      to: target,
-      text: message || 'Halo dari Pterodactyl Panel'
+      to: finalTarget,
+      text: finalMessage
     }, {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -37,22 +44,17 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    // Menangkap error dari Axios dengan detail
     console.error('API Process Failed:', error.message);
     
     if (error.response) {
-      // Error dari server tujuan (response code selain 2xx)
       return res.status(error.response.status).json({
         error: 'Gagal merespons dari server pihak ketiga',
         detail: error.response.data
       });
     } else if (error.request) {
-      // Permintaan dikirim tapi tidak ada jawaban (Network Error)
       return res.status(503).json({ error: 'Server tujuan tidak merespons (RTO)' });
     } else {
-      // Error konfigurasi internal script
       return res.status(500).json({ error: 'Internal Server Error', detail: error.message });
     }
   }
 }
-
