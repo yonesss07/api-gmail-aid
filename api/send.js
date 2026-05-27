@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 export default async function handler(req, res) {
@@ -15,8 +14,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Target nomor telepon wajib diisi' });
     }
 
-    // Ganti URL ini dengan URL API pihak ketiga (Gateway WA/Email) Anda yang sebenarnya
-    const apiUrl = 'https://api-gmail-aid.vercel.app/api/send''; 
+    // PERBAIKAN: Tanda petik ganda di ujung sudah dihapus menjadi satu tanda petik tunggal saja
+    const apiUrl = 'https://api-gmail-aid.vercel.app/api/send'; 
     const apiKey = process.env.AIDGANS; // Ambil dari Environment Variables
 
     const response = await axios.post(apiUrl, {
@@ -56,3 +55,4 @@ export default async function handler(req, res) {
     }
   }
 }
+
